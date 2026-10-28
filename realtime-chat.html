@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="data:," />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <title>Realtime Chat</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --page: #eaf0f2;
+      --rail: #10272a;
+      --rail-2: #173438;
+      --panel: #f7f9fa;
+      --panel-2: #ffffff;
+      --line: #dbe3e6;
+      --text: #15272b;
+      --muted: #65777c;
+      --rail-text: #dce8e9;
+      --rail-muted: #8fabad;
+      --accent: #0d8f85;
+      --accent-strong: #08766e;
+      --accent-soft: #d8f1ed;
+      --coral: #ef735f;
+      --online: #24b378;
+      --away: #e8a93e;
+      --danger: #d95757;
+      --shadow: 0 18px 55px rgba(26, 48, 52, .13);
+      --radius: 18px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --page: #0a1214;
+        --rail: #0c1c1f;
+        --rail-2: #13292c;
+        --panel: #111b1e;
+        --panel-2: #172326;
+        --line: #28383c;
+        --text: #edf5f5;
+        --muted: #93a5a9;
+        --rail-text: #e5eeee;
+        --rail-muted: #91a9ab;
+        --accent: #42c5b8;
+        --accent-strong: #67d5ca;
+        --accent-soft: #163b39;
+        --coral: #ff8c77;
+        --online: #3bc68c;
+        --away: #f1b958;
+        --danger: #f06f6f;
+        --shadow: 0 18px 55px rgba(0, 0, 0, .3);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        radial-gradient(circle at 4% 10%, color-mix(in srgb, var(--accent) 12%, transparent) 0 8%, transparent 30%),
+        var(--page);
+      color: var(--text);
+      font-family: "Manrope", sans-serif;
+      overflow-x: hidden;
+    }
+    button, textarea { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, textarea:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+      outline-offset: 2px;
+    }
+
+    .app-shell {
+      width: min(1480px, calc(100% - 32px));
+      height: min(900px, calc(100dvh - 32px));
+      min-height: 620px;
+      margin: 16px auto;
+      display: grid;
+      grid-template-columns: 244px minmax(0, 1fr) 244px;
+      border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+      border-radius: 24px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .workspace-sidebar {
+      background: var(--rail);
+      color: var(--rail-text);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .workspace-context {
+      min-height: 76px;
+      padding: 17px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,.09);
+    }
+    .workspace-mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 11px;
+      background: var(--coral);
+      color: #fff;
+      font-weight: 800;
+      letter-spacing: -.04em;
+      flex: none;
+    }
+    .workspace-copy { min-width: 0; }
+    .workspace-copy strong, .workspace-copy span { display: block; }
+    .workspace-copy strong { font-size: .93rem; }
+    .workspace-copy span { color: var(--rail-muted); font-size: .72rem; margin-top: 2px; }
+
+    .channel-scroll { padding: 20px 12px; overflow-y: auto; flex: 1; }
+    .section-label {
+      padding: 0 9px 8px;
+      color: var(--rail-muted);
+      font-size: .68rem;
+      font-weight: 800;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+    .channel-list { display: grid; gap: 4px; }
+    .channel-button {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--rail-muted);
+      border-radius: 9px;
+      padding: 9px 10px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      text-align: left;
+      cursor: pointer;
+      transition: background .18s ease, color .18s ease;
+    }
+    .channel-button:hover { background: rgba(255,255,255,.07); color: var(--rail-text); }
+    .channel-button[aria-current="page"] { background: rgba(255,255,255,.12); color: #fff; }
+    .channel-hash { color: var(--accent-strong); font-weight: 800; font-size: 1.08rem; }
+    @media (prefers-color-scheme: light) { .channel-hash { color: #6dd4ca; } }
+    .channel-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; font-weight: 600; }
+    .unread-badge {
+      margin-left: auto;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 6px;
+      border-radius: 99px;
+      background: var(--coral);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font: 500 .67rem "IBM Plex Mono", monospace;
+    }
+    .sidebar-foot {
+      padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
+      border-top: 1px solid rgba(255,255,255,.09);
+      color: var(--rail-muted);
+      font-size: .69rem;
+      line-height: 1.5;
+    }
+    .sidebar-foot strong { color: var(--rail-text); font-weight: 600; }
+
+    .chat-panel {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      background: var(--panel-2);
+    }
+    .chat-header {
+      min-height: 76px;
+      padding: 13px 22px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      background: color-mix(in srgb, var(--panel-2) 92%, transparent);
+    }
+    .header-copy { min-width: 0; }
+    .header-copy h1 { margin: 0; font-size: 1.02rem; line-height: 1.2; letter-spacing: -.02em; }
+    .header-copy p { margin: 4px 0 0; color: var(--muted); font-size: .75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .header-hash { color: var(--accent); }
+    .connection-pill {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: .7rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--online);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--online) 15%, transparent);
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes pulse { 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--online) 4%, transparent); } }
+
+    .icon-button {
+      width: 38px;
+      height: 38px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      display: none;
+      place-items: center;
+      cursor: pointer;
+    }
+    .icon-button:hover { background: var(--accent-soft); }
+    .icon-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+    .message-feed {
+      min-height: 0;
+      overflow-y: auto;
+      padding: 20px 24px 16px;
+      scroll-behavior: smooth;
+    }
+    .day-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 4px 0 22px;
+      color: var(--muted);
+      font: 500 .64rem "IBM Plex Mono", monospace;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .day-divider::before, .day-divider::after { content: ""; height: 1px; background: var(--line); flex: 1; }
+    .message {
+      display: grid;
+      grid-template-columns: 40px minmax(0, 1fr);
+      gap: 11px;
+      margin: 0 0 19px;
+      animation: message-in .28s ease both;
+    }
+    @keyframes message-in { from { opacity: 0; transform: translateY(5px); } }
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: .75rem;
+      letter-spacing: -.02em;
+      position: relative;
+      flex: none;
+    }
+    .avatar::after {
+      content: "";
+      position: absolute;
+      right: -2px;
+      bottom: -2px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      border: 2px solid var(--panel-2);
+      background: var(--online);
+    }
+    .avatar-away::after { background: var(--away); }
+    .avatar-offline::after { background: var(--muted); }
+    .avatar-satyam { background: #2875b9; }
+    .avatar-maya { background: #b85f70; }
+    .avatar-leo { background: #7c65b4; }
+    .avatar-priya { background: #bb6b38; }
+    .avatar-omar { background: #258b75; }
+    .message-head { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+    .message-author { font-size: .84rem; font-weight: 800; }
+    .message-time { color: var(--muted); font: 400 .62rem "IBM Plex Mono", monospace; }
+    .message-body { margin: 4px 0 0; font-size: .88rem; line-height: 1.62; word-break: break-word; }
+    .message-body code { font: 500 .78rem "IBM Plex Mono", monospace; background: var(--accent-soft); color: var(--accent-strong); padding: 2px 5px; border-radius: 5px; }
+    .reaction-row { display: flex; gap: 6px; margin-top: 7px; }
+    .reaction {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 7px;
+      padding: 3px 7px;
+      font-size: .71rem;
+      cursor: pointer;
+    }
+    .reaction:hover { border-color: var(--accent); background: var(--accent-soft); }
+    .reaction.active { border-color: var(--accent); background: var(--accent-soft); }
+
+    .typing-row {
+      display: grid;
+      grid-template-columns: 40px minmax(0, 1fr);
+      gap: 11px;
+      margin: -5px 0 12px;
+      color: var(--muted);
+      font-size: .73rem;
+      align-items: center;
+    }
+    .typing-bubble {
+      justify-self: start;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px 10px 10px 3px;
+      padding: 8px 11px;
+    }
+    .typing-dots { display: flex; gap: 3px; }
+    .typing-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); animation: bounce 1.2s infinite; }
+    .typing-dots i:nth-child(2) { animation-delay: .16s; }
+    .typing-dots i:nth-child(3) { animation-delay: .32s; }
+    @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); opacity: .55; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+    .composer-wrap { padding: 0 22px 19px; }
+    .composer {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      padding: 8px;
+      transition: border-color .18s ease, box-shadow .18s ease;
+      position: relative;
+    }
+    .composer:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
+    .composer textarea {
+      flex: 1;
+      min-width: 0;
+      max-height: 120px;
+      min-height: 38px;
+      resize: none;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--text);
+      padding: 9px 5px 7px;
+      font-size: .85rem;
+      line-height: 1.45;
+    }
+    .composer textarea::placeholder { color: var(--muted); }
+    .composer-button {
+      width: 38px;
+      height: 38px;
+      border: 0;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      flex: none;
+    }
+    .emoji-toggle { background: transparent; font-size: 1.05rem; filter: saturate(.75); }
+    .emoji-toggle:hover { background: var(--accent-soft); }
+    .send-button { background: var(--accent); color: #fff; }
+    .send-button:hover { background: var(--accent-strong); }
+    .send-button:disabled { opacity: .45; cursor: not-allowed; }
+    .send-button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .composer-note { margin: 7px 4px 0; color: var(--muted); font: 400 .6rem "IBM Plex Mono", monospace; }
+    .emoji-picker {
+      position: absolute;
+      left: 8px;
+      bottom: 56px;
+      z-index: 5;
+      width: 230px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      box-shadow: var(--shadow);
+      display: none;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 4px;
+    }
+    .emoji-picker.open { display: grid; }
+    .emoji-picker button { width: 30px; height: 30px; border: 0; background: transparent; border-radius: 7px; cursor: pointer; font-size: 1rem; }
+    .emoji-picker button:hover { background: var(--accent-soft); }
+
+    .member-panel {
+      min-width: 0;
+      background: var(--panel);
+      border-left: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+    }
+    .member-head { min-height: 76px; padding: 18px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; justify-content: center; }
+    .member-head strong { font-size: .85rem; }
+    .member-head span { color: var(--muted); font-size: .68rem; margin-top: 3px; }
+    .member-list { padding: 18px 14px; display: grid; gap: 15px; overflow-y: auto; }
+    .member { display: flex; align-items: center; gap: 10px; }
+    .member .avatar { width: 34px; height: 34px; border-radius: 10px; font-size: .68rem; }
+    .member .avatar::after { border-color: var(--panel); }
+    .member-copy { min-width: 0; }
+    .member-copy strong, .member-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .member-copy strong { font-size: .76rem; }
+    .member-copy span { color: var(--muted); font-size: .63rem; margin-top: 2px; }
+    .member-group-label { color: var(--muted); font-size: .65rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; margin: 6px 0 0; }
+    .member-demo-note { margin: auto 15px 16px; padding: 11px 12px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-strong); font-size: .66rem; line-height: 1.5; }
+    .overlay { display: none; }
+    .mobile-panel-close { display: none; }
+
+    @media (max-width: 980px) {
+      .app-shell { grid-template-columns: 220px minmax(0, 1fr); }
+      .member-panel {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        bottom: 12px;
+        width: min(300px, calc(100vw - 32px));
+        z-index: 30;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        transform: translateX(calc(100% + 24px));
+        transition: transform .22s ease;
+      }
+      .member-panel.open { transform: translateX(0); }
+      .members-button { display: grid; }
+      .mobile-panel-close { display: grid; margin-left: auto; }
+      .overlay.open { display: block; position: fixed; inset: 0; z-index: 25; background: rgba(6, 17, 19, .5); }
+    }
+
+    @media (max-width: 700px) {
+      body { background: var(--panel-2); }
+      .app-shell { width: 100%; height: 100dvh; min-height: 500px; margin: 0; border: 0; border-radius: 0; grid-template-columns: minmax(0, 1fr); box-shadow: none; }
+      .workspace-sidebar {
+        position: fixed;
+        inset: 10px auto 10px 10px;
+        width: min(280px, calc(100vw - 32px));
+        z-index: 30;
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        transform: translateX(calc(-100% - 20px));
+        transition: transform .22s ease;
+      }
+      .workspace-sidebar.open { transform: translateX(0); }
+      .workspace-sidebar:not(.open) .channel-button,
+      .workspace-sidebar:not(.open) .mobile-panel-close { display: none; }
+      .member-panel:not(.open) .mobile-panel-close { display: none; }
+      .rooms-button { display: grid; }
+      .chat-header { padding: 11px 13px; min-height: 66px; }
+      .connection-pill span { display: none; }
+      .message-feed { padding: 18px 14px 12px; }
+      .composer-wrap { padding: 0 12px calc(12px + env(safe-area-inset-bottom)); }
+      .member-panel { top: 10px; right: 10px; bottom: 10px; }
+      .message { grid-template-columns: 36px minmax(0, 1fr); gap: 9px; }
+      .message .avatar { width: 36px; height: 36px; border-radius: 10px; }
+      .message-body { font-size: .84rem; }
+      .typing-row { grid-template-columns: 36px minmax(0, 1fr); gap: 9px; }
+    }
+
+    @media (max-width: 420px) {
+      .header-copy p { max-width: 150px; }
+      .chat-header { gap: 6px; }
+      .icon-button { width: 34px; height: 34px; }
+      .connection-pill { margin-left: auto; }
+      .message-feed { padding-left: 11px; padding-right: 11px; }
+      .composer-wrap { padding-left: 8px; padding-right: 8px; }
+      .composer-note { font-size: .56rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <aside class="workspace-sidebar" id="roomPanel" aria-label="Chat rooms">
+      <div class="workspace-context">
+        <div class="workspace-mark" aria-hidden="true">SB</div>
+        <div class="workspace-copy">
+          <strong>Project workspace</strong>
+          <span>Front-end demo</span>
+        </div>
+        <button class="icon-button mobile-panel-close" id="closeRooms" aria-label="Close room list">
+          <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="channel-scroll">
+        <div class="section-label">Channels</div>
+        <nav class="channel-list" id="channelList"></nav>
+      </div>
+      <div class="sidebar-foot">Built by <strong>Satyam Bali</strong><br />Computer Science · Sacramento State</div>
+    </aside>
+
+    <section class="chat-panel" aria-label="Conversation">
+      <header class="chat-header">
+        <button class="icon-button rooms-button" id="openRooms" aria-label="Open room list">
+          <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <div class="header-copy">
+          <h1><span class="header-hash">#</span> <span id="roomTitle">general</span></h1>
+          <p id="roomTopic">Team updates, quick questions, and hellos.</p>
+        </div>
+        <div class="connection-pill" aria-label="Simulated connection active"><i class="pulse-dot"></i><span>Simulated realtime</span></div>
+        <button class="icon-button members-button" id="openMembers" aria-label="View members">
+          <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </button>
+      </header>
+
+      <div class="message-feed" id="messageFeed" role="log" aria-live="polite" aria-label="Messages"></div>
+
+      <div class="composer-wrap">
+        <form class="composer" id="messageForm">
+          <button class="composer-button emoji-toggle" id="emojiToggle" type="button" aria-label="Add emoji" aria-expanded="false">☺</button>
+          <div class="emoji-picker" id="emojiPicker" aria-label="Emoji picker"></div>
+          <textarea id="messageInput" rows="1" maxlength="500" placeholder="Message #general" aria-label="Message"></textarea>
+          <button class="composer-button send-button" id="sendButton" type="submit" aria-label="Send message" disabled>
+            <svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+          </button>
+        </form>
+        <p class="composer-note">Enter to send · Shift + Enter for a new line · session resets on refresh</p>
+      </div>
+    </section>
+
+    <aside class="member-panel" id="memberPanel" aria-label="Members">
+      <div class="member-head">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <strong>People</strong>
+          <button class="icon-button mobile-panel-close" id="closeMembers" aria-label="Close member list">
+            <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <span>4 active now</span>
+      </div>
+      <div class="member-list" id="memberList"></div>
+      <div class="member-demo-note">Presence and replies are simulated locally for this portfolio demo.</div>
+    </aside>
+  </main>
+  <div class="overlay" id="overlay" aria-hidden="true"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var members = {
+        satyam: { name: "Satyam", initials: "SB", role: "You · Software Engineer", avatar: "satyam", status: "online" },
+        maya: { name: "Maya Chen", initials: "MC", role: "Product Designer", avatar: "maya", status: "online" },
+        leo: { name: "Leo Park", initials: "LP", role: "Backend Engineer", avatar: "leo", status: "online" },
+        priya: { name: "Priya Shah", initials: "PS", role: "Project Lead", avatar: "priya", status: "away" },
+        omar: { name: "Omar Reed", initials: "OR", role: "QA Engineer", avatar: "omar", status: "offline" }
+      };
+
+      var channels = {
+        general: {
+          topic: "Team updates, quick questions, and hellos.",
+          unread: 0,
+          messages: [
+            { author: "priya", text: "Morning team — the demo build is looking sharp. Let’s keep the launch notes in this channel.", time: "9:14 AM", reactions: [{ emoji: "👍", count: 3 }] },
+            { author: "maya", text: "I tightened the mobile spacing and checked the empty states. Everything now feels much calmer on a small screen.", time: "9:18 AM" },
+            { author: "leo", text: "Nice. The message flow is ready too — room switching keeps each conversation separate.", time: "9:21 AM", reactions: [{ emoji: "🔥", count: 2 }] }
+          ],
+          replies: [
+            { author: "maya", text: "That makes sense. I’ll fold it into the next design pass." },
+            { author: "leo", text: "Got it — I can take a look and report back here." },
+            { author: "priya", text: "Great call. Let’s ship the focused version first and iterate from feedback." }
+          ]
+        },
+        engineering: {
+          topic: "Architecture, code reviews, and implementation details.",
+          unread: 2,
+          messages: [
+            { author: "leo", text: "I split the room data from the renderer. It keeps the UI logic small and makes new channels easy to add.", time: "10:02 AM" },
+            { author: "satyam", text: "Good move. I also added keyboard send behavior and a reduced-motion fallback.", time: "10:06 AM" },
+            { author: "leo", text: "That’s the right accessibility baseline. The responsive drawers are working cleanly too.", time: "10:08 AM", reactions: [{ emoji: "✅", count: 2 }] }
+          ],
+          replies: [
+            { author: "leo", text: "I like that approach. It keeps the state predictable without adding unnecessary complexity." },
+            { author: "priya", text: "Please add that to the engineering notes — it’s a useful tradeoff to document." },
+            { author: "maya", text: "I tested the interaction from the UI side and it feels fast." }
+          ]
+        },
+        design: {
+          topic: "Interface polish, interaction patterns, and visual decisions.",
+          unread: 1,
+          messages: [
+            { author: "maya", text: "The teal and coral palette gives us energy without copying the usual chat-app purple.", time: "11:27 AM" },
+            { author: "priya", text: "Agreed. The strong contrast also makes room labels and presence easier to scan.", time: "11:31 AM", reactions: [{ emoji: "✨", count: 3 }] }
+          ],
+          replies: [
+            { author: "maya", text: "I can prototype that. The spacing system should support it without a layout rewrite." },
+            { author: "priya", text: "Yes — keep the hierarchy clear and the interaction lightweight." },
+            { author: "maya", text: "Good catch. I’ll make the active state more obvious." }
+          ]
+        },
+        random: {
+          topic: "Wins, links, and the occasional excellent distraction.",
+          unread: 0,
+          messages: [
+            { author: "omar", text: "Small win: no overflow at 320px. That deserves coffee. ☕", time: "12:05 PM" },
+            { author: "maya", text: "And the emoji picker finally behaves on mobile 🎉", time: "12:07 PM", reactions: [{ emoji: "🎉", count: 4 }] }
+          ],
+          replies: [
+            { author: "omar", text: "I’m counting that as today’s official win. 🎉" },
+            { author: "maya", text: "Excellent. Adding it to the celebration thread." },
+            { author: "leo", text: "That calls for another test pass and then coffee." }
+          ]
+        }
+      };
+
+      var activeRoom = "general";
+      var typingRoom = null;
+      var replyTimer = null;
+      var typingTimer = null;
+      var emojis = ["😀", "👍", "🎉", "🔥", "✨", "✅", "💡", "🚀", "👀", "🙌", "💬", "☕"];
+      var channelList = document.getElementById("channelList");
+      var feed = document.getElementById("messageFeed");
+      var roomTitle = document.getElementById("roomTitle");
+      var roomTopic = document.getElementById("roomTopic");
+      var input = document.getElementById("messageInput");
+      var sendButton = document.getElementById("sendButton");
+      var form = document.getElementById("messageForm");
+      var picker = document.getElementById("emojiPicker");
+      var emojiToggle = document.getElementById("emojiToggle");
+      var memberList = document.getElementById("memberList");
+      var roomPanel = document.getElementById("roomPanel");
+      var memberPanel = document.getElementById("memberPanel");
+      var overlay = document.getElementById("overlay");
+
+      function escapeHtml(value) {
+        return value.replace(/[&<>"]/g, function (char) {
+          return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char];
+        });
+      }
+
+      function formatText(value) {
+        var safe = escapeHtml(value);
+        safe = safe.replace(/`([^`]+)`/g, "<code>$1</code>");
+        return safe.replace(/\n/g, "<br>");
+      }
+
+      function currentTime() {
+        return new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit" }).format(new Date());
+      }
+
+      function avatarClass(person) {
+        var state = person.status === "away" ? " avatar-away" : person.status === "offline" ? " avatar-offline" : "";
+        return "avatar avatar-" + person.avatar + state;
+      }
+
+      function renderChannels() {
+        channelList.innerHTML = Object.keys(channels).map(function (key) {
+          var room = channels[key];
+          return '<button class="channel-button" data-room="' + key + '" aria-current="' + (key === activeRoom ? "page" : "false") + '">' +
+            '<span class="channel-hash" aria-hidden="true">#</span><span class="channel-name">' + key + '</span>' +
+            (room.unread ? '<span class="unread-badge" aria-label="' + room.unread + ' unread">' + room.unread + '</span>' : "") +
+            '</button>';
+        }).join("");
+      }
+
+      function messageMarkup(message, index) {
+        var person = members[message.author];
+        var reactions = message.reactions && message.reactions.length ? '<div class="reaction-row">' + message.reactions.map(function (reaction, reactionIndex) {
+          return '<button class="reaction" type="button" data-message="' + index + '" data-reaction="' + reactionIndex + '" aria-label="React ' + reaction.emoji + '">' + reaction.emoji + ' <span>' + reaction.count + '</span></button>';
+        }).join("") + '</div>' : "";
+        return '<article class="message">' +
+          '<div class="' + avatarClass(person) + '" aria-hidden="true">' + person.initials + '</div>' +
+          '<div><div class="message-head"><span class="message-author">' + person.name + '</span><time class="message-time">' + message.time + '</time></div>' +
+          '<p class="message-body">' + formatText(message.text) + '</p>' + reactions + '</div></article>';
+      }
+
+      function renderFeed(scrollToEnd) {
+        var room = channels[activeRoom];
+        var html = '<div class="day-divider"><span>Today</span></div>';
+        html += room.messages.map(messageMarkup).join("");
+        if (typingRoom === activeRoom) {
+          var typingPerson = members[room.nextAuthor || "maya"];
+          html += '<div class="typing-row"><div></div><div class="typing-bubble"><span class="typing-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>' + typingPerson.name + ' is typing</span></div></div>';
+        }
+        feed.innerHTML = html;
+        roomTitle.textContent = activeRoom;
+        roomTopic.textContent = room.topic;
+        input.placeholder = "Message #" + activeRoom;
+        if (scrollToEnd !== false) requestAnimationFrame(function () { feed.scrollTop = feed.scrollHeight; });
+      }
+
+      function renderMembers() {
+        var active = Object.keys(members).filter(function (key) { return members[key].status !== "offline"; });
+        var offline = Object.keys(members).filter(function (key) { return members[key].status === "offline"; });
+        function memberMarkup(key) {
+          var person = members[key];
+          return '<div class="member"><div class="' + avatarClass(person) + '" aria-hidden="true">' + person.initials + '</div><div class="member-copy"><strong>' + person.name + '</strong><span>' + person.role + '</span></div></div>';
+        }
+        memberList.innerHTML = '<div class="member-group-label">Active — ' + active.length + '</div>' + active.map(memberMarkup).join("") + '<div class="member-group-label">Offline — ' + offline.length + '</div>' + offline.map(memberMarkup).join("");
+      }
+
+      function switchRoom(roomName) {
+        if (!channels[roomName]) return;
+        activeRoom = roomName;
+        channels[roomName].unread = 0;
+        renderChannels();
+        renderFeed();
+        closePanels();
+        input.focus();
+      }
+
+      function scheduleReply(roomName) {
+        var room = channels[roomName];
+        var reply = room.replies[Math.floor(Math.random() * room.replies.length)];
+        room.nextAuthor = reply.author;
+        var typingDelay = 650 + Math.floor(Math.random() * 600);
+        var responseDelay = 1500 + Math.floor(Math.random() * 1400);
+        clearTimeout(typingTimer);
+        clearTimeout(replyTimer);
+        typingTimer = setTimeout(function () {
+          typingRoom = roomName;
+          if (activeRoom === roomName) renderFeed();
+        }, typingDelay);
+        replyTimer = setTimeout(function () {
+          typingRoom = null;
+          room.messages.push({ author: reply.author, text: reply.text, time: currentTime() });
+          if (activeRoom === roomName) {
+            renderFeed();
+          } else {
+            room.unread += 1;
+            renderChannels();
+          }
+        }, responseDelay);
+      }
+
+      function sendMessage() {
+        var text = input.value.trim();
+        if (!text) return;
+        channels[activeRoom].messages.push({ author: "satyam", text: text, time: currentTime() });
+        input.value = "";
+        input.style.height = "auto";
+        sendButton.disabled = true;
+        picker.classList.remove("open");
+        emojiToggle.setAttribute("aria-expanded", "false");
+        renderFeed();
+        scheduleReply(activeRoom);
+      }
+
+      function closePanels() {
+        roomPanel.classList.remove("open");
+        memberPanel.classList.remove("open");
+        overlay.classList.remove("open");
+      }
+
+      channelList.addEventListener("click", function (event) {
+        var button = event.target.closest("[data-room]");
+        if (button) switchRoom(button.getAttribute("data-room"));
+      });
+
+      feed.addEventListener("click", function (event) {
+        var reactionButton = event.target.closest(".reaction");
+        if (!reactionButton) return;
+        var messageIndex = Number(reactionButton.getAttribute("data-message"));
+        var reactionIndex = Number(reactionButton.getAttribute("data-reaction"));
+        var reaction = channels[activeRoom].messages[messageIndex].reactions[reactionIndex];
+        var active = reactionButton.classList.toggle("active");
+        reaction.count += active ? 1 : -1;
+        reactionButton.querySelector("span").textContent = reaction.count;
+      });
+
+      form.addEventListener("submit", function (event) { event.preventDefault(); sendMessage(); });
+      input.addEventListener("input", function () {
+        sendButton.disabled = !input.value.trim();
+        input.style.height = "auto";
+        input.style.height = Math.min(input.scrollHeight, 120) + "px";
+      });
+      input.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          sendMessage();
+        }
+      });
+
+      emojis.forEach(function (emoji) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.textContent = emoji;
+        button.setAttribute("aria-label", "Add " + emoji);
+        button.addEventListener("click", function () {
+          input.value += emoji;
+          input.dispatchEvent(new Event("input"));
+          input.focus();
+        });
+        picker.appendChild(button);
+      });
+      emojiToggle.addEventListener("click", function () {
+        var open = picker.classList.toggle("open");
+        emojiToggle.setAttribute("aria-expanded", String(open));
+      });
+      document.addEventListener("click", function (event) {
+        if (!event.target.closest(".composer")) {
+          picker.classList.remove("open");
+          emojiToggle.setAttribute("aria-expanded", "false");
+        }
+      });
+
+      document.getElementById("openRooms").addEventListener("click", function () { roomPanel.classList.add("open"); overlay.classList.add("open"); });
+      document.getElementById("closeRooms").addEventListener("click", closePanels);
+      document.getElementById("openMembers").addEventListener("click", function () { memberPanel.classList.add("open"); overlay.classList.add("open"); });
+      document.getElementById("closeMembers").addEventListener("click", closePanels);
+      overlay.addEventListener("click", closePanels);
+      document.addEventListener("keydown", function (event) { if (event.key === "Escape") closePanels(); });
+
+      renderChannels();
+      renderMembers();
+      renderFeed();
+    }());
+  </script>
+</body>
+</html>
